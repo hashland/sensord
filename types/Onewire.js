@@ -8,7 +8,7 @@ class OneWire {
     }
 
     async probe() {
-        const slaveIds = await this.getSlaveIds();
+        const slaveIds = await this.getOnewireSlaveDeviceIds();
         if(!slaveIds || slaveIds.length === 0) {
             throw 'Could not find connected sensors';
         }
@@ -18,25 +18,38 @@ class OneWire {
 
 
     async getValues() {
-        const slaveIds = await this.getSlaveIds();
-        const values = await Promise.all(slaveIds.map((id) => this.getValue(id)));
+        const slaveDeviceIds = await this.getOnewireSlaveDeviceIds();
+        const serials = await Promise.all(slaveDeviceIds.map((slaveDeviceId) => this.getSerial(slaveDeviceId)));
+        const values = await Promise.all(slaveDeviceIds.map((slaveDeviceId) => this.getValue(slaveDeviceId)));
 
         let res = [];
-        for(let i=0; i<slaveIds.length; i++) {
-            res.push({id: slaveIds[i], value: values[i]});
+        for(let i=0; i<slaveDeviceIds.length; i++) {
+            res.push({id: serials[i], value: values[i]});
         }
 
         return res;
     }
 
 
-    getSlaveIds() {
+    getOnewireSlaveDeviceIds() {
         return new Promise((resolve, reject) => {
             fs.readFile('/sys/bus/w1/devices/w1_bus_master' + this.busMasterId + '/w1_master_slaves', 'utf-8', (error, data) => {
                 if(error) {
                     reject(error);
                 } else {
                     resolve(data.trim().split("\n"));
+                }
+            });
+        });
+    }
+
+    getSerial(deviceId) {
+        return new Promise((resolve, reject) => {
+            fs.readFile('/sys/bus/w1/devices/' + deviceId + '/id', 'hex', (error, data) => {
+                if(error) {
+                    reject(error);
+                } else {
+                    resolve(data);
                 }
             });
         });
