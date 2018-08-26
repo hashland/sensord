@@ -1,10 +1,13 @@
 const
-    fs = require('fs');
+    fs = require('fs'),
+    EventEmitter = require('events');
 
-class OneWire {
+class OneWire extends EventEmitter {
     constructor(busMasterId = 1) {
+        super();
         this.name = "Local 1-wire";
         this.busMasterId = busMasterId;
+        this.interval = null;
     }
 
     async probe() {
@@ -16,20 +19,24 @@ class OneWire {
         return true;
     }
 
+    start() {
+        this._run();
+        this.interval = setInterval(this._run.bind(this), 30000);
+    }
 
-    async getValues() {
+    stop() {
+        clearInterval(this.interval);
+    }
+
+    async _run() {
         const slaveDeviceIds = await this.getOnewireSlaveDeviceIds();
         const serials = await Promise.all(slaveDeviceIds.map((slaveDeviceId) => this.getSerial(slaveDeviceId)));
         const values = await Promise.all(slaveDeviceIds.map((slaveDeviceId) => this.getValue(slaveDeviceId)));
 
-        let res = [];
         for(let i=0; i<slaveDeviceIds.length; i++) {
-            res.push({id: serials[i], value: values[i]});
+            this.emit('data', {id: serials[i], value: values[i]});
         }
-
-        return res;
     }
-
 
     getOnewireSlaveDeviceIds() {
         return new Promise((resolve, reject) => {

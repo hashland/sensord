@@ -4,28 +4,38 @@ const
     { OneWire } = require('./types/Onewire'),
     { STM32F030 } = require('./types/STM32F030');
 
-const oneWire = new OneWire(1),
-    stm32f030 = new STM32F030();
+let values = [];
 
-let sensors = [];
+const oneWire = new OneWire(1),
+    stm32f030 = new STM32F030(),
+    dataHandler = data => {
+        const value = values.find(v => v.id == data.id);
+        if(value) {
+            value.value = data.value;
+            value.last_updated_at = Date.now() / 1000 | 0;
+        } else {
+            values.push({
+                id: data.id,
+                value: data.value,
+                last_updated_at: Date.now() / 1000 | 0
+            })
+        }
+    };
+
 
 [oneWire, stm32f030].forEach((sensor) => {
 
     sensor.probe().then(() => {
-        sensors.push(sensor);
         console.log('Registered ' + sensor.name);
+        sensor.on('data', dataHandler);
+        sensor.start();
 
     }).catch((e) => {});
 
 });
 
 app.use(async (ctx, next) => {
-    ctx.body = await Promise.all(
-        sensors.map((s) => s.getValues())
-
-    ).then((arrayOfArrays) => {
-         return [].concat.apply([], arrayOfArrays);
-     });
+    ctx.body = values;
 });
 
 app.listen(3333);

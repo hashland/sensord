@@ -1,9 +1,12 @@
 const
-    HID = require('node-hid');
+    HID = require('node-hid'),
+    EventEmitter = require('events');
 
-class STM32F030 {
+class STM32F030 extends EventEmitter {
     constructor() {
+        super();
         this.name = "STM32F030 USB HID";
+        this.device = null;
     }
 
     findHIDDevice() {
@@ -22,48 +25,33 @@ class STM32F030 {
         return true;
     }
 
-    getValues() {
-        return new Promise((resolve, reject) => {
-            let deviceInfo = this.findHIDDevice();
 
-            if (!deviceInfo) {
-                reject("Could not find RawHID device in device list");
-            }
+    start() {
+        let deviceInfo = this.findHIDDevice();
 
-            const device = new HID.HID(deviceInfo.path);
+        if (!deviceInfo) {
+            throw "Could not find RawHID device in device list";
+        }
 
-            let res = [];
+        this.device = new HID.HID(deviceInfo.path);
 
-            device.on('data', (data) => {
-                // 02 02 01 00 2d 01 00 00 28ffd1250117053c
+        this.device.on('data', data => {
+            // 02 02 01 00 2d 01 00 00 28ffd1250117053c
 
-                var sensorCount = data.readUIntBE(0, 1),
-                    sensorId = data.readUIntBE(1, 1),
-                    power = data.readUIntBE(2, 1),
-                    value = data.readIntLE(4, 2) / 10,
-                    serial = data.toString('hex', 8, 16);
+            var sensorCount = data.readUIntBE(0, 1),
+                sensorId = data.readUIntBE(1, 1),
+                power = data.readUIntBE(2, 1),
+                value = data.readIntLE(4, 2) / 10,
+                serial = data.toString('hex', 8, 16);
 
-                const entry = res.filter((r) => r.id === serial);
-
-                if(entry.length == 0) {
-                    res.push({
-                        id: serial,
-                        value: value
-                    })
-                }
-
-                if(res.length == sensorCount) {
-                    device.close();
-                    resolve(res);
-                }
-
-            });
-
-            device.on('error', (err) => {
-                device.close();
-                reject(err);
-            });
+            this.emit('data', {id: serial, value: value});
         });
+
+        device.on('error', err => console.log(err));
+    }
+
+    stop() {
+        this.device.close();
     }
 }
 

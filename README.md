@@ -35,12 +35,14 @@ You can find the chip firmware at https://github.com/hashland/tempsensor-STM32F0
 All available sensor data will be exported via HTTP on port 3333. Example:
 
 ```
-[{"id":"28ff221e50170486","value":25.6},{"id":"28ff79d1501704c0","value":26.3}]
+[{"id":"28ff221e50170486","value":26.1,"last_updated_at":1535279407},{"id":"28ff79d1501704c0","value":26.8,"last_updated_at":1535279407}]
 ```
 
 `id` is the unique 64 bit serial from the DS18B20 sensor.
 
 `value` holds the current temperature in celsius.
+
+`last_updated_at` Unix timestamp when the sensor data was last updated.
 
 ## License
 
